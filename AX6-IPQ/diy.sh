@@ -5,11 +5,11 @@ function git_sparse_clone() {
   repodir="$(basename "${repourl%.git}")"
   git init "$repodir"
   git -C "$repodir" remote add origin "$repourl"
-  git -C "$repodir" -c protocol.version=2 fetch --depth=1 --filter=blob:none origin "$ref"
-  git -C "$repodir" checkout --detach FETCH_HEAD
-  # --no-cone supports both directories and individual files.
+  # Configure sparse paths before checkout so unrelated blobs are never downloaded.
   git -C "$repodir" sparse-checkout init --no-cone
   git -C "$repodir" sparse-checkout set "$@"
+  git -C "$repodir" -c protocol.version=2 fetch --depth=1 --filter=blob:none origin "$ref"
+  git -C "$repodir" checkout --detach FETCH_HEAD
   for path in "$@"; do
     mv -f "$repodir/$path" package/
   done
