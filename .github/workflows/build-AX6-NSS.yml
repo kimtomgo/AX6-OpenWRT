@@ -7,6 +7,10 @@ on:
       - main
     paths:
       - .github/workflows/build-AX6-NSS.yml
+      - AX6-IPQ/.config
+      - AX6-IPQ/diy.sh
+      - AX6-IPQ/files/**
+      - AX6-IPQ/frp/**
 
 env:
   REPO_URL: https://github.com/VIKINGYFY/immortalwrt.git
@@ -19,6 +23,10 @@ env:
 
 permissions:
   contents: write
+
+concurrency:
+  group: ax6-nss-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   build:
