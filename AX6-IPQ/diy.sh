@@ -1,4 +1,6 @@
 #!/bin/bash
+set -euo pipefail
+
 # Pin third-party feeds/packages to immutable commits for repeatable builds.
 function git_sparse_clone() {
   ref="$1" repourl="$2" && shift 2
