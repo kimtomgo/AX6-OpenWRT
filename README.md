@@ -1,6 +1,6 @@
-### 自用 Redmi AX6（大分区）一键编译
+### 自用 Redmi AX6（原厂 U-Boot / 原厂分区）一键编译
 
-基于 [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt.git) `main`，目标机型 **redmi_ax6-stock**，带 NSS 加速。
+基于 [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) 固定提交构建，目标机型 **redmi_ax6-stock**（原厂 U-Boot / 原厂分区布局），包含传统 Qualcomm NSS 驱动与 ECM 组件。
 
 ## Workflows
 
@@ -19,7 +19,7 @@
      - 本地编辑 `AX6-IPQ/.config` 后提交；或
      - 运行 **AX6-IPQ Config**，勾选 **SSH 进入 menuconfig**，通过 FRP 连入 Actions 执行 `make menuconfig`（见下方 FRP 配置）。
 2. 编译固件：运行 **Build OpenWRT for AX6-NSS**
-3. 在仓库 **Releases** 页面下载最新固件，刷入 **redmi_ax6-stock（大分区）** 机型
+3. 在仓库 **Releases** 页面下载 `redmi_ax6-stock` 对应镜像；仅用于原厂 U-Boot / 原厂分区的 Redmi AX6。首次刷入用 Factory `.ubi`，已运行兼容 OpenWrt 时才用 Sysupgrade `.bin`。不要刷入 `redmi_ax6`（非 stock layout）镜像，也不要按大分区 U-Boot 教程操作。
 
 ## FRP 配置（仅 SSH menuconfig 时需要）
 
@@ -39,7 +39,7 @@
 - NSS 加速默认开启，**不要**在防火墙里额外打开系统硬件/软件流量分载，容易冲突。
 - 大流量时 CPU 占用很低，说明 NSS 在起作用。
 - 固件使用 **opkg** 包管理器；Passwall、OpenClash 等插件建议在编译时勾选打进固件。
-- 自编译固件（自定义内核/NSS）**不建议**使用官方在线源安装 kmod 等内核相关包，容易 ABI 不匹配。
+- 自编译固件使用自定义 Linux 6.18 / NSS 内核组件，**禁止从官方 24.10.6 或其他版本软件源安装 kmod**，内核 ABI 不匹配可能导致模块无法加载或系统异常。安装第三方 kmod 前必须确认它与本次镜像的 kernel version、vermagic 完全一致。
 
 ## opkg 软件源
 
