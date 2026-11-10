@@ -15,10 +15,15 @@ env:
   DIY_SH: AX6-IPQ/diy.sh
   FILES: AX6-IPQ/files
   TZ: Asia/Shanghai
+  REPO_COMMIT: f9b0ce7650fdcc7f4793256a3ae43c1132e2bc49
+
+permissions:
+  contents: write
 
 jobs:
   build:
     runs-on: ubuntu-22.04
+    timeout-minutes: 360
 
     steps:
     - name: Check machine configuration
@@ -112,13 +117,16 @@ jobs:
     - name: Clone source code
       working-directory: ./
       run: |
-        git clone $REPO_URL -b $REPO_BRANCH openwrt
+        git clone $REPO_URL openwrt
+        git -C openwrt checkout --detach "$REPO_COMMIT"
+        test "$(git -C openwrt rev-parse HEAD)" = "$REPO_COMMIT"
+        echo "ImmortalWrt source: $REPO_COMMIT"
 
     - name: cache wrt build
       uses: stupidloud/cachewrtbuild@main
       with:
         ccache: 'true'
-        mixkey: AX6-NSS-${{ env.REPO_BRANCH }}
+        mixkey: AX6-NSS-${{ env.REPO_COMMIT }}
         prefix: ${{ github.workspace }}/openwrt
         
     - name: Update & Install feeds
@@ -146,13 +154,15 @@ jobs:
         # Linux 6.18 bonding triggers unused-function warnings; defconfig may re-enable WERROR.
         sed -i 's/^CONFIG_KERNEL_WERROR=y$/# CONFIG_KERNEL_WERROR is not set/' .config
         make defconfig
+        grep -qx 'CONFIG_TARGET_PROFILE="DEVICE_redmi_ax6-stock"' .config
+        grep -qx 'CONFIG_TARGET_qualcommax_ipq807x_DEVICE_redmi_ax6-stock=y' .config
+        echo "Verified target: Redmi AX6 stock partition layout"
         make download -j8
         find dl -size -1024c -exec ls -l {} \;
         find dl -size -1024c -exec rm -f {} \;
 
     - name: Compile the firmware
       run: |
-        chmod -R 755 openwrt
         cd openwrt
         echo -e "$(nproc) thread compile"
         make -j$(nproc) || make -j1 || make -j1 V=s
@@ -164,13 +174,43 @@ jobs:
       # with:
         # name: AX6-NSS
         # path: openwrt/bin/targets
-    - name: cp output to upload file
+    - name: Validate and stage Redmi AX6 stock-layout images
       run: |
+        set -euo pipefail
+        TARGET_DIR="openwrt/bin/targets/qualcommax/ipq807x"
+        test -d "$TARGET_DIR"
+        FACTORY="$(find "$TARGET_DIR" -maxdepth 1 -type f -name '*redmi_ax6-stock*squashfs-factory.ubi' -print -quit)"
+        SYSUPGRADE="$(find "$TARGET_DIR" -maxdepth 1 -type f -name '*redmi_ax6-stock*squashfs-sysupgrade.bin' -print -quit)"
+        test -n "$FACTORY" && test -s "$FACTORY"
+        test -n "$SYSUPGRADE" && test -s "$SYSUPGRADE"
+        MANIFEST="$(find "$TARGET_DIR" -maxdepth 1 -type f -name '*redmi_ax6-stock.manifest' -print -quit)"
+        test -n "$MANIFEST" && test -s "$MANIFEST"
+        for pkg in kmod-ath11k kmod-qca-nss-drv kmod-qca-nss-ecm dae luci-app-dae xray-core sing-box tailscale zerotier wireguard-tools frpc; do
+          if ! grep -qE "^\${pkg}[[:space:]]" "$MANIFEST"; then
+            echo "ERROR: expected package missing from image manifest: $pkg" >&2
+            exit 1
+          fi
+        done
+        mkdir -p upload
+        cp "$FACTORY" "$SYSUPGRADE" "$MANIFEST" upload/
+        cp openwrt/.config upload/build.config
+        cp openwrt/feeds.buildinfo upload/ 2>/dev/null || true
+        cp openwrt/version.buildinfo upload/ 2>/dev/null || true
+        printf 'source_commit=%s\nprofile=redmi_ax6-stock\n' "$REPO_COMMIT" > upload/BUILDINFO.txt
+        (cd upload && sha256sum * > SHA256SUMS)
+        echo "Validated firmware outputs:"
+        ls -lh upload/
+        cat upload/SHA256SUMS
         df -hT
-        mkdir upload
-        cp openwrt/bin/targets/*/*/*.ubi upload/
-        cp openwrt/bin/targets/*/*/*.bin upload/
-        
+
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: Redmi-AX6-stock-ImmortalWrt
+        path: upload/*
+        if-no-files-found: error
+        retention-days: 14
+
     - name: Get Current Date
       run: echo "CURRENT_DATE=$(date '+%Y%m%d%H%M%S')" >> $GITHUB_ENV
       
