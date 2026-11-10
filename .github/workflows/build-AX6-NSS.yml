@@ -203,7 +203,7 @@ jobs:
         MANIFEST="$(find "$TARGET_DIR" -maxdepth 1 -type f -name '*redmi_ax6-stock.manifest' -print -quit)"
         test -n "$MANIFEST" && test -s "$MANIFEST"
         for pkg in kmod-ath11k kmod-qca-nss-drv kmod-qca-nss-ecm dae luci-app-dae xray-core sing-box tailscale zerotier wireguard-tools frpc; do
-          if ! grep -qE "^\${pkg}[[:space:]]" "$MANIFEST"; then
+          if ! grep -qE "^${pkg}[[:space:]]" "$MANIFEST"; then
             echo "ERROR: expected package missing from image manifest: $pkg" >&2
             exit 1
           fi
