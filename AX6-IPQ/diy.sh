@@ -14,7 +14,7 @@ function git_sparse_clone() {
 
 # Add packages
 # EasyTier 组网（稀疏克隆，menuconfig 里自选 easytier / easytier-noweb）
-git_sparse_clone main https://github.com/fightroad/luci-app-easytier easytier easytier-noweb luci-app-easytier version.mk
+#git_sparse_clone main https://github.com/fightroad/luci-app-easytier easytier easytier-noweb luci-app-easytier version.mk
 
 # Socat 端口转发 LuCI（Lienol 版，兼容新版 socat，配置用 luci_socat 不冲突）
 git_sparse_clone main https://github.com/Lienol/openwrt-package luci-app-socat
