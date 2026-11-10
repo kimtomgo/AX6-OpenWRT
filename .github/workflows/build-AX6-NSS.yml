@@ -85,7 +85,7 @@ jobs:
         echo "Free up disk space complete"
         echo "=============================================================================="
         df -hT
-        ROOT_AVAIL_GB="$(df -BG / | awk 'NR==2 {gsub(/G/, \"\", $4); print $4}')"
+        ROOT_AVAIL_GB="$(df -BG / | awk 'NR==2 {gsub(/G/, "", $4); print $4}')"
         echo "Root filesystem available: ${ROOT_AVAIL_GB}G"
         if [ "${ROOT_AVAIL_GB}" -lt 50 ]; then
           echo "ERROR: less than 50 GB remains on root filesystem; refusing to start apt/build" >&2
