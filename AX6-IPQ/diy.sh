@@ -81,3 +81,7 @@ chmod +x "$DIY_DIR/frp/patch_enable.sh"
 
 #修改主机名
 #sed -i "s/hostname='ImmortalWrt'/hostname='Redmi-AX6'/g" package/base-files/files/bin/config_generate
+
+# dae
+git clone --depth 1 https://github.com/daeuniverse/dae package/dae 2>/dev/null || true
+git clone --depth 1 https://github.com/QiuSimons/luci-app-dae package/luci-app-dae 2>/dev/null || true
