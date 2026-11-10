@@ -165,7 +165,16 @@ jobs:
       run: |
         cd openwrt
         echo -e "$(nproc) thread compile"
-        make -j$(nproc) || make -j1 || make -j1 V=s
+        set -o pipefail
+        if ! make -j"$(nproc)" V=s 2>&1 | tee ../compile.log; then
+          if grep -Eiq 'out of memory|Killed process|fatal error: Killed signal' ../compile.log; then
+            echo "Detected probable OOM; retrying serially once"
+            make -j1 V=s 2>&1 | tee ../compile-retry.log
+          else
+            echo "Build failed for a non-OOM reason; not wasting quota on blind retries" >&2
+            exit 1
+          fi
+        fi
         echo "compile_status=success" >> $GITHUB_ENV
 
     # - name : Upload packages
@@ -224,26 +233,23 @@ jobs:
         body: |
           ## Redmi AX6 · ImmortalWrt (NSS)
 
-          基于 [VIKINGYFY/immortalwrt](https://github.com/VIKINGYFY/immortalwrt) 构建，启用 NSS 硬件加速。
+          基于锁定源码提交 `${{ env.REPO_COMMIT }}` 构建，目标为 **Redmi AX6 原厂 U-Boot / 原厂分区布局（redmi_ax6-stock）**。
 
-          > 首次使用建议 **清空配置全新刷写**（stock 大分区机型）。
+          > 本固件不要求刷入大分区/第三方 U-Boot。刷写前仍须核对设备型号、分区布局和 SHA256；不要将其他 AX6 变体镜像混用。
 
-          ### 预装插件
+          ### 预装功能
           - PassWall（Xray + Sing-box）
-          - DDNS-Go
-          - Socat
-          - UPnP
-          - KMS
-          - EasyTier
-          - ZeroTier
-          - WireGuard
-          - frpc
+          - dae（使用 ImmortalWrt 24.10 内置包）
+          - DDNS-Go、Socat、UPnP
+          - Tailscale、ZeroTier、WireGuard、frpc
 
           ### 固件文件
-          | 后缀 | 用途 |
+          | 文件 | 用途 |
           | --- | --- |
-          | `.ubi` | 首次刷入 / U-Boot、ubiformat 等写入 NAND |
-          | `.bin` | 已在 OpenWrt 上时，网页或 `sysupgrade` 升级用 |
+          | `*redmi_ax6-stock*squashfs-factory.ubi` | Factory 镜像，原厂固件环境首次刷入时使用；请按 AX6 stock-layout 专用流程操作 |
+          | `*redmi_ax6-stock*squashfs-sysupgrade.bin` | 已运行兼容的 OpenWrt/ImmortalWrt 时升级使用 |
+
+          发布包附带 manifest、构建配置、源码提交信息和 `SHA256SUMS`。不要将 Factory 与 Sysupgrade 镜像混用。
 
           ### 默认登录
           | 项 | 值 |
