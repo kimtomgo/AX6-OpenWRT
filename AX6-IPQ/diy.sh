@@ -1,15 +1,28 @@
 #!/bin/bash
-# Git稀疏克隆，只克隆指定目录到本地
+# Pin third-party feeds/packages to immutable commits for repeatable builds.
 function git_sparse_clone() {
-  branch="$1" repourl="$2" && shift 2
-  git clone --depth=1 -b "$branch" --single-branch --filter=blob:none --sparse "$repourl"
-  repodir=$(echo "$repourl" | awk -F '/' '{print $(NF)}')
-  cd "$repodir" || exit 1
-  # --no-cone 才能同时稀疏检出目录和单文件（如 easytier 的 version.mk）
-  git sparse-checkout init --no-cone
-  git sparse-checkout set "$@"
-  mv -f "$@" ../package/
-  cd .. && rm -rf "$repodir"
+  ref="$1" repourl="$2" && shift 2
+  repodir="$(basename "${repourl%.git}")"
+  git init "$repodir"
+  git -C "$repodir" remote add origin "$repourl"
+  git -C "$repodir" -c protocol.version=2 fetch --depth=1 --filter=blob:none origin "$ref"
+  git -C "$repodir" checkout --detach FETCH_HEAD
+  # --no-cone supports both directories and individual files.
+  git -C "$repodir" sparse-checkout init --no-cone
+  git -C "$repodir" sparse-checkout set "$@"
+  for path in "$@"; do
+    mv -f "$repodir/$path" package/
+  done
+  rm -rf "$repodir"
+}
+
+function git_clone_pinned() {
+  repourl="$1" ref="$2" destination="$3"
+  git init "$destination"
+  git -C "$destination" remote add origin "$repourl"
+  git -C "$destination" -c protocol.version=2 fetch --depth=1 origin "$ref"
+  git -C "$destination" checkout --detach FETCH_HEAD
+  test "$(git -C "$destination" rev-parse HEAD)" = "$ref"
 }
 
 # Add packages
@@ -17,14 +30,14 @@ function git_sparse_clone() {
 #git_sparse_clone main https://github.com/fightroad/luci-app-easytier easytier easytier-noweb luci-app-easytier version.mk
 
 # Socat 端口转发 LuCI（Lienol 版，兼容新版 socat，配置用 luci_socat 不冲突）
-git_sparse_clone main https://github.com/Lienol/openwrt-package luci-app-socat
+git_sparse_clone 33de45e71201007c8501ea9e9f26f02543d666f5 https://github.com/Lienol/openwrt-package luci-app-socat
 
 # PassWall 科学上网（xiaorouji 源，替换 feeds 自带版本）
 rm -rf feeds/packages/net/{xray-core,v2ray-geoip,v2ray-geodata,v2ray-geosite,v2ray-geosite-ir,sing-box,chinadns-ng,dns2socks,hysteria,ipt2socks,microsocks,naiveproxy,shadowsocks-rust,shadowsocksr-libev,simple-obfs,tcping,v2ray-plugin,xray-plugin,geoview,shadow-tls}
 rm -rf feeds/luci/applications/luci-app-passwall
 rm -rf package/openwrt-passwall-packages package/openwrt-passwall
-git clone --depth 1 https://github.com/xiaorouji/openwrt-passwall-packages package/openwrt-passwall-packages
-git clone --depth 1 https://github.com/xiaorouji/openwrt-package package/openwrt-passwall
+git_clone_pinned https://github.com/Openwrt-Passwall/openwrt-passwall-packages 4dad9be70a37343ad3ef88cd3722576e8e234edf package/openwrt-passwall-packages
+git_clone_pinned https://github.com/Openwrt-Passwall/openwrt-passwall 9dc6e04870689ba86dbc7cdfba9e0d956f5fe2e8 package/openwrt-passwall
 
 # frp：用官方预编译包替换 Imm 源码编译（避免 node/host 编 WebUI 失败）
 # 保留 feeds 里 Imm 的 files/（init、uci），LuCI 仍用官方 luci-app-frpc
